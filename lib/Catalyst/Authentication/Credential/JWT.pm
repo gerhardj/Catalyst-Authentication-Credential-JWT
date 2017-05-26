@@ -78,7 +78,8 @@ __END__
 
 =head1 NAME
 
-Catalyst::Authentication::Credential::JWT
+Catalyst::Authentication::Credential::JWT - authenticate to a Catalyst
+application via JWT
 
 =head1 DESCRIPTION
 

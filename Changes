@@ -1,5 +1,5 @@
-Revision history for Catalyst-Authentication-Credential-JWT
+Revision history perl module Catalyst::Authentication::Credential::JWT
 
-0.01    Date/time
-        First version, released on an unsuspecting world.
+0.01    2017-05-24
+        Initial version. basic JWT authentication. some tests.
 
