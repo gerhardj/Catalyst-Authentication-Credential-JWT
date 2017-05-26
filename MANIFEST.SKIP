@@ -1,0 +1,4 @@
+.git/
+.gitignore
+MANIFEST.bak
+MANIFEST.SKIP

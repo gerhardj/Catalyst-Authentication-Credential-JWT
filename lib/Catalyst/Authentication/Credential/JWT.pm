@@ -1,21 +1,97 @@
 package Catalyst::Authentication::Credential::JWT;
 
-use 5.006;
 use strict;
 use warnings;
 
+use base "Class::Accessor::Fast";
+
+__PACKAGE__->mk_accessors(qw/
+    debug
+    username_jwt
+    username_field
+    id_jwt
+    id_field
+    jwt_key
+    alg
+/);
+
+our $VERSION = '0.01';
+
+use Crypt::JWT qw/decode_jwt/;
+use TryCatch;
+use Catalyst::Exception ();
+
+sub new {
+    my ( $class, $config, $c, $realm ) = @_;
+    my $self = {
+                # defaults:
+                username_jwt => 'username',
+                username_field => 'username',
+                id_jwt => 'id',
+                id_field => 'id',
+                alg => 'HS256',
+                #
+                %{ $config },
+                %{ $realm->{config} },  # additional info, actually unused
+               };
+    bless $self, $class;
+
+    return $self;
+}
+
+sub authenticate {
+    my ( $self, $c, $realm, $authinfo ) = @_;
+
+    $c->log->debug("CredentialJWT::authenticate() called from " . $c->request->uri) if $self->debug;
+
+    my $auth_header = $c->req->header('Authorization');
+    return unless ($auth_header);
+
+    my ($token) = $auth_header =~ m/Bearer\s+(.*)/;
+    return unless ($token);
+
+    $c->log->debug("Found token: $token") if $self->debug;
+
+    my $jwt_data;
+    try {
+        $jwt_data = decode_jwt(token=>$token, key=>$self->jwt_key, accepted_alg => $self->alg);
+    } catch ($e) {
+        # smt happended
+        $c->log->debug("Error decoding token: $e") if $self->debug;
+        return;
+    }
+
+    my $user_data = {
+        %{ $authinfo // {} },
+            $self->username_field => $jwt_data->{$self->username_jwt},
+            $self->id_field => $jwt_data->{$self->id_jwt},
+    };
+    my $user_obj = $realm->find_user($user_data, $c);
+    if (ref $user_obj) {
+        return $user_obj;
+    } else {
+        $c->log->debug("Failed to find_user") if $self->debug;
+        return;
+    }
+}
+
+1;
+
+__END__
+
 =head1 NAME
 
-Catalyst::Authentication::Credential::JWT - The great new Catalyst::Authentication::Credential::JWT!
+Catalyst::Authentication::Credential::JWT
+
+=head1 DESCRIPTION
+
+This authentication credential checker tries to read a JSON Web Token (JWT)
+from the current request, verifies its signature and looks up the user
+in the configured authentication store.
 
 =head1 VERSION
 
 Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
 
 =head1 SYNOPSIS
 
@@ -35,19 +111,17 @@ if you don't export anything, such as for a purely object-oriented module.
 
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=over 4
 
-=cut
+=item new
 
-sub function1 {
-}
+bla
 
-=head2 function2
+=item authenticate
 
-=cut
+bla
 
-sub function2 {
-}
+=back
 
 =head1 AUTHOR
 
@@ -55,47 +129,16 @@ Gerhard Jungwirth, C<< <gerhard.jungwirth3 at gmail.com> >>
 
 =head1 BUGS
 
-Please report any bugs or feature requests to C<bug-catalyst-authentication-credential-jwt at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Catalyst-Authentication-Credential-JWT>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
+Please report bugs via Github.
 
 =head1 SUPPORT
 
-You can find documentation for this module with the perldoc command.
-
-    perldoc Catalyst::Authentication::Credential::JWT
-
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Catalyst-Authentication-Credential-JWT>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Catalyst-Authentication-Credential-JWT>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Catalyst-Authentication-Credential-JWT>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Catalyst-Authentication-Credential-JWT/>
-
-=back
-
+For general questions, see resources of Catalyst itself.
 
 =head1 ACKNOWLEDGEMENTS
 
 
-=head1 LICENSE AND COPYRIGHT
+=head1 LICENSE
 
 Copyright 2017 Gerhard Jungwirth.
 
@@ -105,37 +148,4 @@ copy of the full license at:
 
 L<http://www.perlfoundation.org/artistic_license_2_0>
 
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
-
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
 =cut
-
-1; # End of Catalyst::Authentication::Credential::JWT
