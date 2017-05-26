@@ -7,10 +7,8 @@ use base "Class::Accessor::Fast";
 
 __PACKAGE__->mk_accessors(qw/
     debug
-    username_jwt
-    username_field
-    id_jwt
-    id_field
+    jwt_fields
+    store_fields
     jwt_key
     alg
 /);
@@ -25,10 +23,8 @@ sub new {
     my ( $class, $config, $c, $realm ) = @_;
     my $self = {
                 # defaults:
-                username_jwt => 'username',
-                username_field => 'username',
-                id_jwt => 'id',
-                id_field => 'id',
+                jwt_fields => ['username'],
+                store_fields => ['username'],
                 alg => 'HS256',
                 #
                 %{ $config },
@@ -63,9 +59,10 @@ sub authenticate {
 
     my $user_data = {
         %{ $authinfo // {} },
-            $self->username_field => $jwt_data->{$self->username_jwt},
-            $self->id_field => $jwt_data->{$self->id_jwt},
     };
+    for (my $i = 0; $i < length(@{ $self->jwt_fields }); $i++) {
+        $user_data->{$self->store_fields->[$i]} = $jwt_data->{$self->jwt_fields->[$i]};
+    }
     my $user_obj = $realm->find_user($user_data, $c);
     if (ref $user_obj) {
         return $user_obj;
@@ -95,19 +92,29 @@ Version 0.01
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+    use Catalyst qw/
+        Authentication
+    /;
 
-Perhaps a little code snippet.
+    __PACKAGE__->config( 'Plugin::Authentication' => {
+        default_realm => 'example',
+        realms => {
+            example => {
+                credential => {
+                    class => 'JWT',
+                    jwt_key => 'secret' # MUST be changed!!
+                },
+                store => {
+                    class => 'Minimal',
+                    users => {
+                        bob => { password => 'bobspassword' },
+                    },
+                },
+            },
+        }
+    });
 
-    use Catalyst::Authentication::Credential::JWT;
-
-    my $foo = Catalyst::Authentication::Credential::JWT->new();
-    ...
-
-=head1 EXPORT
-
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
+see also the tests of this module.
 
 =head1 SUBROUTINES/METHODS
 
