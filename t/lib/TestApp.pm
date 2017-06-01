@@ -4,18 +4,7 @@ use namespace::autoclean;
 
 use Catalyst::Runtime 5.80;
 
-# Set flags and add plugins for the application.
-#
-# Note that ORDERING IS IMPORTANT here as plugins are initialized in order,
-# therefore you almost certainly want to keep ConfigLoader at the head of the
-# list if you're using it.
-#
-#         -Debug: activates the debug mode for very useful log messages
-#   ConfigLoader: will load the configuration from a Config::General file in the
-#                 application's home directory
-# Static::Simple: will serve static files from the application's root
-#                 directory
-
+# -Debug: activates the debug mode for very useful log messages
 use Catalyst qw/
     Authentication
     Authorization::Roles
@@ -76,7 +65,7 @@ Test application for Catalyst::Authentication::Credential::JWT
 
 =head1 SEE ALSO
 
-L<TestApp::Controller::Root>, L<Catalyst>
+L<Catalyst::Authentication::Credential::JWT>, L<Catalyst>
 
 =head1 AUTHOR
 

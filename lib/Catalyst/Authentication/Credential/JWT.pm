@@ -85,7 +85,8 @@ application via JWT
 
 This authentication credential checker tries to read a JSON Web Token (JWT)
 from the current request, verifies its signature and looks up the user
-in the configured authentication store.
+in the configured authentication store. Only tested with JWS so far. (For JWE
+some adaptions to this module may be neccessary.)
 
 =head1 VERSION
 
@@ -115,7 +116,94 @@ Version 0.01
         }
     });
 
-see also the tests of this module.
+    sub foo : Local {
+        my ( $self, $c ) = @_;
+
+        $c->authenticate({}, "example");
+
+        do_stuff();
+    }
+
+see also the tests of this module. The task of creating new tokens to users is
+up to you, but you will probably write something like this:
+
+    use JSON qw/encode_json decode_json/;
+    use Crypt::JWT qw/encode_jwt/;
+
+    sub auth_jwt :Chained('/') :PathPart('auth_jwt') :Args(0) :Method('POST') {
+        my ($self, $c) = @_;
+
+        my $user = $c->req->body_data->{username} // '';
+        my $pass = $c->req->body_data->{password} // '';
+
+        my $key = 'secret'; # CHANGE THIS!!!
+
+        $c->response->content_type('application/json');
+
+        ...
+        # error checking
+        # checking valid credential from db
+
+        my $result = {};
+
+        if ($auth_credentials_valid) {
+            my $jwt_data = {
+                username => $user,
+            };
+            $result->{jwt} = encode_jwt(
+                payload => $jwt_data,
+                key => $key,
+                alg => $alg,
+            );
+        } else {
+            $c->response->status(HTTP_FORBIDDEN);
+            $c->response->body(encode_json({ code => HTTP_FORBIDDEN,
+                message => "User not found" })."\n");
+            $c->log->error("User not found");
+            return;
+        }
+
+        $c->res->body(encode_json($result));
+        $c->res->code(HTTP_OK);  # 200
+
+        return;
+    }
+
+=head1 CONFIGURATION
+
+Configuration is done through Catalyst configuration as seen in the synopsis. This module is activated
+by setting C<class> to C<JWT>. Some further options are available:
+
+=over 4
+
+=item jwt_key
+
+Required. Take care, to have a sufficiently high entropy. For more
+details, read some tutorials about JWT.
+
+=item jwt_fields
+
+Array of fields in the token, which are used to find a matching user
+in the store.
+Default: C<['username']>
+
+=item store_fields
+
+Array of fields in the store, to which the C<jwt_fields> are
+matched against. In other words, the keys, which are passed
+to C<find_user> of the store.
+Default: C<['username']>
+
+=item alg
+
+List of accepted JWS algorithms. Can be a string, array or Regex.
+For more details, see documentation of L<Crypt::JWT|Crypt::JWT#accepted_alg>.
+
+=item debug
+
+If set to a true value, some debug output is generated.
+
+=back
 
 =head1 SUBROUTINES/METHODS
 
@@ -123,11 +211,14 @@ see also the tests of this module.
 
 =item new
 
-bla
+Constructor. You don't need to call this yourself. Just plug the module in
+your Catalyst authentication framework. Also see L<Catalyst::Plugin::Authentication|Catalyst::Plugin::Authentication>.
 
 =item authenticate
 
-bla
+Searches for a valid JSON web token in the Authorization header with the Bearer scheme. If found, uses
+the specified fields to lookup the given user in the store using the find_user method. This is also called
+through the authentication plugin with C<< $c->authenticate(...) >>.
 
 =back
 
@@ -143,6 +234,8 @@ Please report bugs via Github.
 
 For general questions, see resources of Catalyst itself.
 
+For more Information about JWT, got to jwt.io
+
 =head1 ACKNOWLEDGEMENTS
 
 
@@ -150,10 +243,7 @@ For general questions, see resources of Catalyst itself.
 
 Copyright 2017 Gerhard Jungwirth.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
-
-L<http://www.perlfoundation.org/artistic_license_2_0>
+This program is free software; you can redistribute
+it and/or modify it under the same terms as Perl itself.
 
 =cut
